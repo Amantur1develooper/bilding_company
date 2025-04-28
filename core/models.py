@@ -103,7 +103,7 @@ class StorageLocation(models.Model):
         related_name='storage_locations'
     )
     name = models.CharField("Название места", blank=True,null=True, max_length=100)
-    construction_object = models.ForeignKey("ConstructionObjectOfWarehouse", null=True, blank=True, on_delete=models.PROTECT, 
+    construction_object = models.ForeignKey("ConstructionObjectOfWarehouse", null=True, blank=True, on_delete=models.SET_NULL, 
                                           verbose_name="Объект")
     payment_type = models.CharField("Способ оплаты", max_length=20, choices=PAYMENT_TYPES)
     material = models.CharField(max_length=200, verbose_name="Материал")
@@ -169,11 +169,11 @@ class MaterialRecord(models.Model):
     
     operation_type = models.CharField("Тип операции", max_length=20, choices=OPERATION_TYPES, default='income')
     datetime = models.DateTimeField("Дата/время", default=timezone.now)
-    construction_object = models.ForeignKey(ConstructionObject, null=True, blank=True, on_delete=models.PROTECT, 
+    construction_object = models.ForeignKey(ConstructionObject, null=True, blank=True, on_delete=models.SET_NULL, 
                                           verbose_name="Объект")
     warehouse = models.ForeignKey(
         Warehouse,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         verbose_name="Склад",
         null=True,
         blank=True
@@ -221,11 +221,11 @@ class HistoryOdWarehouse(models.Model):
     
     operation_type = models.CharField("Тип операции", max_length=20, choices=OPERATION_TYPES, default='income')
     datetime = models.DateTimeField("Дата/время", default=timezone.now)
-    construction_object = models.ForeignKey(ConstructionObject, null=True, blank=True, on_delete=models.PROTECT, 
+    construction_object = models.ForeignKey(ConstructionObject, null=True, blank=True, on_delete=models.SET_NULL, 
                                           verbose_name="Объект")
     warehouse = models.ForeignKey(
         Warehouse,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         verbose_name="Склад",
         null=True,
         blank=True
