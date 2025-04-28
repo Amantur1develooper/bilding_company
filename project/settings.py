@@ -28,9 +28,12 @@ DEBUG = True
 ALLOWED_HOSTS = ['tapik.org', 'www.tapik.org']
 
 CSRF_TRUSTED_ORIGINS = [
-    'tapik.org', 'https://www.tapik.org','https://tapik.org'
-    # "https://c738-92-245-115-37.ngrok-free.app",
+     'https://tapik.org',
+    'https://www.tapik.org',
 ]
+
+# "https://c738-92-245-115-37.ngrok-free.app",
+
 # Application definition
 
 INSTALLED_APPS = [
