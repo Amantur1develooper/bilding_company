@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="mb-4">Добро пожаловать, {{ username }}!</h1>
+            
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="d-grid gap-3">
+                        <!-- Кнопка 1 -->
+                        {% comment %} {% url 'material-records' %} {% endcomment %}
+                        <a href="{% url 'warehouse' %}" class="btn btn-primary btn-lg py-3">
+                            <i class="bi bi-box-seam me-2"></i>
+                            Склад
+                        </a>
+                        
+                        <!-- Кнопка 2 -->
+                        {% comment %} {% url 'reports' %} {% endcomment %}
+                        <a href="{% url 'reports' %}" class="btn btn-success btn-lg py-3">
+                            <i class="bi bi-file-earmark-bar-graph me-2"></i>
+                            Обьекты
+                        </a>
+                    </div>
+                    
+                    <!-- Для админов дополнительная кнопка -->
+                    {% if is_admin %}
+                    <div class="mt-4">
+                        <a href="{% url 'admin:index' %}" class="btn btn-outline-dark">
+                            <i class="bi bi-gear me-2"></i>
+                            Администрирование
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

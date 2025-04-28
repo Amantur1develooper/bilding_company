@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block content %}
+<div class="container-fluid mt-3">
+    <!-- Фильтры и экспорт -->
+    <div class="card mb-4 shadow">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Фильтрация объектов</h5>
+                <a href="?export=1" class="btn btn-light btn-sm">
+                    <i class="bi bi-file-excel"></i> Экспорт в Excel
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-5">
+                    <input type="text" name="q" class="form-control" 
+                           placeholder="Поиск по названию, адресу или заказчику" 
+                           value="{{ search_query }}">
+                </div>
+               
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Фильтровать
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'objects' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-counterclockwise"></i> Сбросить
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Таблица объектов -->
+    <div class="card mb-4 shadow">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">Строительные объекты</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Название</th>
+                            <th>Адрес</th>
+                            
+                            <th class="text-end">Материалов</th>
+                            <th class="text-end">Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for obj in objects %}
+                        <tr>
+                        <td><strong><a href="{% url 'object_detail' object_id=obj.id %}">{{ obj.name }}</a> </strong></td>   
+                            <td>{{ obj.address }}</td>
+                           
+                            <td class="text-end">
+                                {{ obj.materialrecord_set.count }}
+                            </td>
+                            <td class="text-end">
+                                {{ obj.materialrecord_set.all|sum_attr:'total'|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4">Объекты не найдены</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица материалов -->
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Все материалы на объектах</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Дата</th>
+                            <th>Объект</th>
+                            <th>Материал</th>
+                            <th class="text-end">Кол-во</th>
+                            <th class="text-end">Цена</th>
+                            <th class="text-end">Сумма</th>
+                            <th>Тип операции</th>
+                            <th>Штрих-код</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mat in materials %}
+                        <tr>
+                            <td>{{ mat.datetime|date:"d.m.Y H:i" }}</td>
+                            <td>{{ mat.construction_object.name }}</td>
+                            <td>{{ mat.material }}</td>
+                            <td class="text-end">{{ mat.quantity|floatformat:"-2" }}</td>
+                            <td class="text-end">{{ mat.price|floatformat:2 }}</td>
+                            <td class="text-end">{{ mat.total|floatformat:2 }}</td>
+                            <td>
+                                {% if mat.operation_type == 'income' %}
+                                <span class="badge bg-success">Приход</span>
+                                {% elif mat.operation_type == 'outcome' %}
+                                <span class="badge bg-danger">Расход</span>
+                                {% else %}
+                                <span class="badge bg-warning">Перемещение</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mat.barcode|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">Материалы не найдены</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

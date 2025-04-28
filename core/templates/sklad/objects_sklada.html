@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_filters %}
+{% block content %}
+<div class="container-fluid mt-3">
+    <!-- Фильтры отчета -->
+    {% comment %} <div class="card mb-4 shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Параметры отчета</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Период</label>
+                    <select name="period" class="form-select">
+                        <option value="day" {% if selected_period == 'day' %}selected{% endif %}>За день</option>
+                        <option value="week" {% if selected_period == 'week' %}selected{% endif %}>За неделю</option>
+                        <option value="month" {% if selected_period == 'month' %}selected{% endif %}>За месяц</option>
+                        <option value="quarter" {% if selected_period == 'quarter' %}selected{% endif %}>За квартал</option>
+                        <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Произвольный</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3" id="start-date-group">
+                    <label class="form-label">Начальная дата</label>
+                    <input type="date" name="start_date" class="form-control" 
+                           value="{{ start_date }}">
+                </div>
+                
+                <div class="col-md-3" id="end-date-group">
+                    <label class="form-label">Конечная дата</label>
+                    <input type="date" name="end_date" class="form-control" 
+                           value="{{ end_date }}">
+                </div>
+                
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-funnel"></i> Применить
+                    </button>
+                    <button type="submit" name="export" value="1" class="btn btn-success">
+                        <i class="bi bi-file-excel"></i> Экспорт
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div> {% endcomment %}
+   {% comment %} <!-- Таблица объектов -->
+   <div class="card mb-4 shadow">
+    <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0">Строительные объекты</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Название</th>
+                        <th>Адрес</th>
+                        
+                        <th class="text-end">Материалов</th>
+                        <th class="text-end">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for obj in objects %}
+                    <tr>
+                    <td><strong><a href="{% url 'object_detail_view_skalda' object_id=obj.id %}">{{ obj.name }}</a> </strong></td>   
+                        <td>{{ obj.address }}</td>
+                       
+                        <td class="text-end">
+                            {{ obj.materialrecord_set.count }}
+                        </td>
+                        <td class="text-end">
+                            {{ obj.materialrecord_set.all|sum_attr:'total'|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">Объекты не найдены</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div> {% endcomment %}
+<!-- Таблица объектов -->
+<div class="card mb-4 shadow">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">Строительные объекты</h5>
+            <small class="text-white-50">Показано {% if objects|length > 3 %}3 из {% endif %}{{ objects|length }} объектов</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-light toggle-table-btn" data-target="objects-table" title="{% if objects|length > 3 %}Показать все{% else %}Свернуть{% endif %}">
+                <i class="bi bi-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="objects-table">
+                <thead class="table-light">
+                    <tr>
+                        <th width="30%">Название</th>
+                        <th width="40%">Адрес</th>
+                        {% comment %} <th width="15%" class="text-end">Материалов</th>
+                        <th width="15%" class="text-end">Сумма</th> {% endcomment %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for obj in objects|slice:":3" %}
+                    <tr class="always-visible">
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{% url 'object_detail_view_skalda' object_id=obj.id %}" class="text-decoration-none">
+                                    <strong>{{ obj.name }}</strong>
+                                </a>
+                                
+                            </div>
+                        </td>
+                        <td>{{ obj.address|truncatechars:40 }}</td>
+                        {% comment %} <td class="text-end">
+                            <span class="badge bg-primary rounded-pill">
+                                {{ obj.materialrecord_set.count }}
+                            </span> {% endcomment %}
+                        {% comment %} </td> {% endcomment %}
+                        {% comment %} <td class="text-end">
+                            <span class="badge bg-success">
+                                {{ obj.materialrecord_set.all|sum_attr:'total'|floatformat:2 }} ₸
+                            </span>
+                        </td> {% endcomment %}
+                    </tr>
+                    {% endfor %}
+                    
+                   {% for obj in objects|slice:"3:" %}
+                    <tr class="toggleable-row" style="display: none;">
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{% url 'object_detail_view_skalda' object_id=obj.id %}" class="text-decoration-none">
+                                    <strong>{{ obj.name }}</strong>
+                                </a>
+                               
+                            </div>
+                        </td>
+                        <td>{{ obj.address }}</td>
+                        {% comment %} <td class="text-end">
+                            <span class="badge bg-primary rounded-pill">
+                                {{ obj.materialrecord_set.count }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <span class="badge bg-success">
+                                {{ obj.materialrecord_set.all|sum_attr:'total'|floatformat:2 }} ₸
+                            </span>
+                        </td> {% endcomment %}
+                    </tr>
+                    {% endfor %} 
+                    
+                    {% if objects|length == 0 %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <div class="text-muted">
+                                <i class="bi bi-building-x fs-4"></i>
+                                <p class="mt-2 mb-0">Объекты не найдены</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Анимация и стили для шторки */
+    .toggle-table-btn .bi-chevron-down {
+        transition: transform 0.3s ease;
+    }
+    .toggle-table-btn.collapsed .bi-chevron-down {
+        transform: rotate(-90deg);
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    .badge.rounded-pill {
+        padding: 0.35em 0.65em;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.querySelector('.toggle-table-btn[data-target="objects-table"]');
+    
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const targetTable = document.getElementById(this.getAttribute('data-target'));
+            const rows = targetTable.querySelectorAll('.toggleable-row');
+            
+            this.classList.toggle('collapsed');
+            const icon = this.querySelector('i');
+            icon.classList.toggle('bi-chevron-down');
+            icon.classList.toggle('bi-chevron-up');
+            
+            rows.forEach(row => {
+                row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+            });
+            
+            // Обновляем текст в заголовке
+            const smallText = this.closest('.card-header').querySelector('small');
+            if (smallText) {
+                smallText.textContent = this.classList.contains('collapsed') 
+                    ? `Показаны все ${targetTable.querySelectorAll('tbody tr').length} объектов`
+                    : `Показано 3 из ${targetTable.querySelectorAll('tbody tr').length}`;
+            }
+            
+            // Обновляем title кнопки
+            this.title = this.classList.contains('collapsed') ? 'Свернуть' : 'Показать все';
+        });
+    }
+    
+    // Инициализация
+    document.querySelectorAll('#objects-table .toggleable-row').forEach(row => {
+        row.style.display = 'none';
+    });
+});
+</script>
+
+<style>
+    /* Стили для анимации стрелки */
+    .toggle-table-btn .bi-chevron-down {
+        transition: transform 0.3s ease;
+    }
+    
+    .toggle-table-btn.collapsed .bi-chevron-down {
+        transform: rotate(-90deg);
+    }
+    
+    /* Подсветка строк при наведении */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработчик для кнопки развертывания/свертывания
+    const toggleBtn = document.querySelector('.toggle-table-btn[data-target="objects-table"]');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const targetTable = document.getElementById(this.getAttribute('data-target'));
+            const rows = targetTable.querySelectorAll('.toggleable-row');
+            
+            // Переключаем класс collapsed для кнопки
+            this.classList.toggle('collapsed');
+            
+            // Переключаем иконку
+            const icon = this.querySelector('i');
+            icon.classList.toggle('bi-chevron-down');
+            icon.classList.toggle('bi-chevron-up');
+            
+            // Переключаем видимость строк
+            rows.forEach(row => {
+                row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+            });
+        });
+    }
+    
+    // Инициализация - скрываем все строки кроме первых 3
+    document.querySelectorAll('#objects-table .toggleable-row').forEach(row => {
+        row.style.display = 'none';
+    });
+});
+</script>
+ 
+  
+    <!-- Сводная информация -->
+<div class="card mb-4 shadow">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Сводка по объектам</h5>
+        <button class="btn btn-sm btn-outline-light toggle-table-btn" data-target="summary-table">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="summary-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Объект</th>
+                        <th>Материал</th>
+                        <th class="text-end">Количество</th>
+                        <th class="text-end">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in summary|slice:":3" %}
+                    <tr class="always-visible">
+                        <td>{{ item.construction_object__name }}</td>
+                        <td>{{ item.material }}</td>
+                        <td class="text-end">{{ item.total_quantity|floatformat:"-2" }} {{ records.0.unit.short_name }}</td>
+                        <td class="text-end">{{ item.total_sum|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% for item in summary|slice:"3:" %}
+                    <tr class="toggleable-row" style="display: none;">
+                        <td>{{ item.construction_object__name }}</td>
+                        <td>{{ item.material }}</td>
+                        <td class="text-end">{{ item.total_quantity|floatformat:"-2" }} {{ records.0.unit.short_name }}</td>
+                        <td class="text-end">{{ item.total_sum|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% if summary|length == 0 %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">Нет данных за выбранный период</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Детализированные записи -->
+<div class="card shadow">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">Детализированные записи</h5>
+            <small class="text-white-50">Показано {% if records|length > 3 %}3 из {% endif %}{{ records|length }}</small>
+        </div>
+        <button class="btn btn-sm btn-outline-light toggle-table-btn" data-target="details-table">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0" id="details-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Дата</th>
+                        <th>Объект</th>
+                        <th>Материал</th>
+                        <th>Способ оплаты</th>
+                        <th class="text-end">Кол-во</th>
+                        <th class="text-end">Цена</th>
+                        <th class="text-end">Сумма</th>
+                        <th>Штрих-код</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records|slice:":3" %}
+                    <tr class="always-visible">
+                        <td>{{ record.datetime|date:"d.m.Y H:i" }}</td>
+                        <td>{{ record.construction_object.name }}</td>
+                        <td>{{ record.material }}</td>
+                        <td>{{ record.get_payment_type_display }}</td>
+                        <td class="text-end">{{ record.quantity|floatformat:"-2" }}</td>
+                        <td class="text-end">{{ record.price|floatformat:2 }}</td>
+                        <td class="text-end">{{ record.total|floatformat:2 }}</td>
+                        <td>{{ record.barcode|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% for record in records|slice:"3:" %}
+                    <tr class="toggleable-row" style="display: none;">
+                        <td>{{ record.datetime|date:"d.m.Y H:i" }}</td>
+                        <td>{{ record.construction_object.name }}</td>
+                        <td>{{ record.material }}</td>
+                        <td>{{ record.get_payment_type_display }}</td>
+                        <td class="text-end">{{ record.quantity|floatformat:"-2" }}</td>
+                        <td class="text-end">{{ record.price|floatformat:2 }}</td>
+                        <td class="text-end">{{ record.total|floatformat:2 }}</td>
+                        <td>{{ record.barcode|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% if records|length == 0 %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">Нет записей за выбранный период</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Стили для анимации стрелки */
+    .toggle-table-btn .bi-chevron-down {
+        transition: transform 0.3s ease;
+    }
+    
+    .toggle-table-btn.collapsed .bi-chevron-down {
+        transform: rotate(-90deg);
+    }
+    
+    /* Подсветка строк при наведении */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Плавное появление строк */
+    .toggleable-row {
+        transition: all 0.3s ease;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработчики для всех кнопок развертывания/свертывания
+    document.querySelectorAll('.toggle-table-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const targetTable = document.getElementById(targetId);
+            const rows = targetTable.querySelectorAll('.toggleable-row');
+            
+            // Переключаем класс collapsed для кнопки
+            this.classList.toggle('collapsed');
+            
+            // Переключаем иконку
+            const icon = this.querySelector('i');
+            icon.classList.toggle('bi-chevron-down');
+            icon.classList.toggle('bi-chevron-up');
+            
+            // Переключаем видимость строк
+            rows.forEach(row => {
+                row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+            });
+            
+            // Обновляем текст в заголовке (если есть)
+            const header = this.closest('.card-header');
+            const smallText = header.querySelector('small');
+            if (smallText) {
+                if (this.classList.contains('collapsed')) {
+                    smallText.textContent = `Показаны все ${targetTable.querySelectorAll('tbody tr').length} записей`;
+                } else {
+                    const visibleCount = targetTable.querySelectorAll('tbody tr.always-visible').length;
+                    smallText.textContent = `Показано ${visibleCount} из ${targetTable.querySelectorAll('tbody tr').length}`;
+                }
+            }
+        });
+    });
+    
+    // Инициализация - скрываем все строки кроме первых 3
+    document.querySelectorAll('.toggleable-row').forEach(row => {
+        row.style.display = 'none';
+    });
+});
+</script>
+</div>
+
+<!-- JavaScript для управления фильтрами -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodSelect = document.querySelector('select[name="period"]');
+    const startDateGroup = document.getElementById('start-date-group');
+    const endDateGroup = document.getElementById('end-date-group');
+    
+    function toggleDateInputs() {
+        if (periodSelect.value === 'custom') {
+            startDateGroup.style.display = 'block';
+            endDateGroup.style.display = 'block';
+        } else {
+            startDateGroup.style.display = 'none';
+            endDateGroup.style.display = 'none';
+        }
+    }
+    
+    // Инициализация
+    toggleDateInputs();
+    
+    // Обработчик изменений
+    periodSelect.addEventListener('change', toggleDateInputs);
+});
+</script>
+{% endblock %}

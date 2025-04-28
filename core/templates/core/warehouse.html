@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-md-4">
+            <!-- Форма добавления материала -->
+            <div class="card mb-4 shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Добавить материал на склад</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle"></i> Добавить
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Фильтры -->
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Фильтрация</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Поиск по штрих-коду</label>
+                            <div class="input-group">
+                                <input type="text" name="barcode" class="form-control" 
+                                       placeholder="Введите штрих-код" value="{{ request.GET.barcode }}">
+                                <button class="btn btn-outline-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Период</label>
+                            <select name="period" class="form-select">
+                                <option value="day" {% if selected_period == 'day' %}selected{% endif %}>За день</option>
+                                <option value="week" {% if selected_period == 'week' %}selected{% endif %}>За неделю</option>
+                                <option value="month" {% if selected_period == 'month' %}selected{% endif %}>За месяц</option>
+                                <option value="quarter" {% if selected_period == 'quarter' %}selected{% endif %}>За квартал</option>
+                                <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Произвольный</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6" id="start-date-group" 
+                             style="display: {% if selected_period == 'custom' %}block{% else %}none{% endif %}">
+                            <label class="form-label">Начальная дата</label>
+                            <input type="date" name="start_date" class="form-control" 
+                                   value="{{ start_date }}">
+                        </div>
+                        
+                        <div class="col-md-6" id="end-date-group"
+                             style="display: {% if selected_period == 'custom' %}block{% else %}none{% endif %}">
+                            <label class="form-label">Конечная дата</label>
+                            <input type="date" name="end_date" class="form-control" 
+                                   value="{{ end_date }}">
+                        </div>
+                        
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="bi bi-funnel"></i> Применить
+                            </button>
+                            <button type="submit" name="export" value="1" class="btn btn-success">
+                                <i class="bi bi-file-excel"></i> Экспорт
+                            </button>
+                            <a href="{% url 'warehouse' %}" class="btn mt-2 btn-outline-secondary">
+                                <i class="bi bi-arrow-counterclockwise"></i> Сбросить
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">Материалы на складе: {{ warehouse.name }}</h5>
+                        <small class="text-white-50">Показано {% if records.count > 3 %}3 из {% endif %}{{ records.count }} записей</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-light text-dark me-2">
+                            Всего: {{ records.count }} записей
+                        </span>
+                        <button class="btn btn-sm btn-outline-light toggle-table-btn" data-target="warehouse-materials-table">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0" id="warehouse-materials-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Материал</th>
+                                    <th class="text-end">Кол-во</th>
+                                    <th class="text-end">Цена</th>
+                                    <th class="text-end">Сумма</th>
+                                    <th>Штрих-код</th>
+                                    <th style="max-width: 350px;">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in records|slice:":3" %}
+                                <tr class="always-visible">
+                                    <td>{{ record.datetime|date:"d.m.Y H:i" }}</td>
+                                    <td>{{ record.material }}</td>
+                                    <td class="text-end">{{ record.quantity|floatformat:"-2" }} {{ record.unit.short_name }}</td>
+                                    <td class="text-end">{{ record.price|floatformat:2 }}</td>
+                                    <td class="text-end">{{ record.total|floatformat:2 }}</td>
+                                    <td>{{ record.barcode|default:"-" }}</td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-2">
+                                            <!-- Форма перемещения на объект -->
+                                            <div class="border p-2 rounded">
+                                                <form method="post" class="move-form mb-2">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="record_id" value="{{ record.id }}">
+                                                    
+                                                    <div class="input-group mb-2">
+                                                        <input type="text" name="quantity" 
+                                                               class="form-control form-control-sm" 
+                                                               step="0.001" min="0.001" 
+                                                               max="{{ record.quantity }}"
+                                                               value="{{ record.quantity|floatformat:'-3' }}"
+                                                               placeholder="Кол-во"
+                                                               pattern="[0-9]+([\.,][0-9]+)?" 
+                                                               title="Используйте точку или запятую для десятичных">
+                                                    </div>
+                                                    
+                                                    <div class="input-group">
+                                                        <select name="construction_object" class="form-select form-select-sm" required>
+                                                            <option value="">Выберите объект</option>
+                                                            {% for obj in objects %}
+                                                            <option value="{{ obj.id }}">{{ obj.name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="submit" name="move_to_object" 
+                                                                class="btn btn-sm btn-success"
+                                                                title="Переместить на объект">
+                                                            <i class="bi bi-arrow-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                            
+                                            <!-- Форма перемещения на другой склад -->
+                                            <div class="border p-2 rounded">
+                                                <form method="post" class="move-form mb-2">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="record_id" value="{{ record.id }}">
+                                                    
+                                                    <div class="input-group mb-2">
+                                                        <input type="text" name="quantity" 
+                                                               class="form-control form-control-sm" 
+                                                               step="0.001" min="0.001" 
+                                                               max="{{ record.quantity }}"
+                                                               value="{{ record.quantity|floatformat:'-3' }}"
+                                                               placeholder="Кол-во"
+                                                               pattern="[0-9]+([\.,][0-9]+)?" 
+                                                               title="Используйте точку или запятую для десятичных">
+                                                    </div>
+                                                    
+                                                    <div class="input-group">
+                                                        <select name="construction_object" class="form-select form-select-sm" required>
+                                                            <option value="">Выберите объект склада</option>
+                                                            {% for obj in objects_sklada %}
+                                                            <option value="{{ obj.id }}">{{ obj.name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="submit" name="move_to_objects_klada" 
+                                                                class="btn btn-sm btn-warning"
+                                                                title="Переместить на объект">
+                                                            <i class="bi bi-arrow-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                            
+                                            <!-- Форма добавления количества -->
+                                            <form method="post" class="add-quantity-form">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="record_id" value="{{ record.id }}">
+                                                
+                                                <div class="input-group">
+                                                    <input type="text" name="add_quantity" 
+                                                           class="form-control form-control-sm" 
+                                                           step="0.001" min="0.001"
+                                                           placeholder="Добавить кол-во"
+                                                           pattern="[0-9]+([\.,][0-9]+)?"
+                                                           title="Используйте точку или запятую для десятичных"
+                                                           required>
+                                                    <span class="input-group-text">{{ record.unit.short_name }}</span>
+                                                    <button type="submit" class="btn btn-sm btn-primary" 
+                                                            title="Добавить количество">
+                                                        <i class="bi bi-plus"></i>
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                
+                                {% for record in records|slice:"3:" %}
+                                <tr class="toggleable-row" style="display: none;">
+                                    <td>{{ record.datetime|date:"d.m.Y H:i" }}</td>
+                                    <td>{{ record.material }}</td>
+                                    <td class="text-end">{{ record.quantity|floatformat:"-2" }} {{ record.unit.short_name }}</td>
+                                    <td class="text-end">{{ record.price|floatformat:2 }}</td>
+                                    <td class="text-end">{{ record.total|floatformat:2 }}</td>
+                                    <td>{{ record.barcode|default:"-" }}</td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-2">
+                                            <!-- Формы действий (аналогично выше) -->
+                                            <!-- Форма перемещения на объект -->
+                                            <div class="border p-2 rounded">
+                                                <form method="post" class="move-form mb-2">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="record_id" value="{{ record.id }}">
+                                                    
+                                                    <div class="input-group mb-2">
+                                                        <input type="text" name="quantity" 
+                                                               class="form-control form-control-sm" 
+                                                               step="0.001" min="0.001" 
+                                                               max="{{ record.quantity }}"
+                                                               value="{{ record.quantity|floatformat:'-3' }}"
+                                                               placeholder="Кол-во"
+                                                               pattern="[0-9]+([\.,][0-9]+)?" 
+                                                               title="Используйте точку или запятую для десятичных">
+                                                    </div>
+                                                    
+                                                    <div class="input-group">
+                                                        <select name="construction_object" class="form-select form-select-sm" required>
+                                                            <option value="">Выберите объект</option>
+                                                            {% for obj in objects %}
+                                                            <option value="{{ obj.id }}">{{ obj.name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="submit" name="move_to_object" 
+                                                                class="btn btn-sm btn-success"
+                                                                title="Переместить на объект">
+                                                            <i class="bi bi-arrow-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                            
+                                            <!-- Форма перемещения на другой склад -->
+                                            <div class="border p-2 rounded">
+                                                <form method="post" class="move-form mb-2">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="record_id" value="{{ record.id }}">
+                                                    
+                                                    <div class="input-group mb-2">
+                                                        <input type="text" name="quantity" 
+                                                               class="form-control form-control-sm" 
+                                                               step="0.001" min="0.001" 
+                                                               max="{{ record.quantity }}"
+                                                               value="{{ record.quantity|floatformat:'-3' }}"
+                                                               placeholder="Кол-во"
+                                                               pattern="[0-9]+([\.,][0-9]+)?" 
+                                                               title="Используйте точку или запятую для десятичных">
+                                                    </div>
+                                                    
+                                                    <div class="input-group">
+                                                        <select name="construction_object" class="form-select form-select-sm" required>
+                                                            <option value="">Выберите объект склада</option>
+                                                            {% for obj in objects_sklada %}
+                                                            <option value="{{ obj.id }}">{{ obj.name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="submit" name="move_to_objects_klada" 
+                                                                class="btn btn-sm btn-warning"
+                                                                title="Переместить на объект">
+                                                            <i class="bi bi-arrow-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                            
+                                            <!-- Форма добавления количества -->
+                                            <form method="post" class="add-quantity-form">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="record_id" value="{{ record.id }}">
+                                                
+                                                <div class="input-group">
+                                                    <input type="text" name="add_quantity" 
+                                                           class="form-control form-control-sm" 
+                                                           step="0.001" min="0.001"
+                                                           placeholder="Добавить кол-во"
+                                                           pattern="[0-9]+([\.,][0-9]+)?"
+                                                           title="Используйте точку или запятую для десятичных"
+                                                           required>
+                                                    <span class="input-group-text">{{ record.unit.short_name }}</span>
+                                                    <button type="submit" class="btn btn-sm btn-primary" 
+                                                            title="Добавить количество">
+                                                        <i class="bi bi-plus"></i>
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                
+                                {% if records.count == 0 %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">Нет материалов на складе</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Обработчик для кнопки развертывания/свертывания
+            const toggleBtn = document.querySelector('.toggle-table-btn[data-target="warehouse-materials-table"]');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    const targetTable = document.getElementById(this.getAttribute('data-target'));
+                    const rows = targetTable.querySelectorAll('.toggleable-row');
+                    
+                    // Переключаем класс collapsed для кнопки
+                    this.classList.toggle('collapsed');
+                    
+                    // Переключаем иконку
+                    const icon = this.querySelector('i');
+                    icon.classList.toggle('bi-chevron-down');
+                    icon.classList.toggle('bi-chevron-up');
+                    
+                    // Переключаем видимость строк
+                    rows.forEach(row => {
+                        row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+                    });
+                    
+                    // Обновляем текст в заголовке
+                    const smallText = this.closest('.card-header').querySelector('small');
+                    if (smallText) {
+                        if (this.classList.contains('collapsed')) {
+                            smallText.textContent = `Показаны все ${targetTable.querySelectorAll('tbody tr').length} записей`;
+                        } else {
+                            smallText.textContent = `Показано 3 из ${targetTable.querySelectorAll('tbody tr').length}`;
+                        }
+                    }
+                });
+            }
+            
+            // Инициализация - скрываем все строки кроме первых 3
+            document.querySelectorAll('#warehouse-materials-table .toggleable-row').forEach(row => {
+                row.style.display = 'none';
+            });
+        });
+        </script>
+    <!-- История переходов -->
+    <div class="card shadow mt-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"> История ({{ records_history|length }})</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Дата</th>
+                            <th>Объект</th>
+                            <th>Материал</th>
+                            <th>Способ оплаты</th>
+                            <th class="text-end">Кол-во</th>
+                            <th class="text-end">Цена</th>
+                            <th class="text-end">Сумма</th>
+                            <th  class="text-center" >Комментарии</th>
+                            {% comment %} <th>Штрих-код</th> {% endcomment %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records_history %}
+                        <tr>
+                            <td>{{ record.datetime|date:"d.m.Y H:i" }}</td>
+                            <td>{{ record.construction_object.name }}</td>
+                            <td>{{ record.material }}</td>
+                            <td>{{ record.get_payment_type_display }}</td>
+                            <td class="text-end">{{ record.quantity|floatformat:"-2" }}</td>
+                            <td class="text-end">{{ record.price|floatformat:2 }}</td>
+                            <td class="text-end">{{ record.total|floatformat:2 }}</td>
+                            <td class="text-center">{{record.comment}}</td>
+                            {% comment %} <td>{{ record.barcode|default:"-" }}</td> {% endcomment %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">Нет записей за выбранный период</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const periodSelect = document.querySelector('select[name="period"]');
+            const startDateGroup = document.getElementById('start-date-group');
+            const endDateGroup = document.getElementById('end-date-group');
+            
+            function toggleDateInputs() {
+                if (periodSelect.value === 'custom') {
+                    startDateGroup.style.display = 'block';
+                    endDateGroup.style.display = 'block';
+                } else {
+                    startDateGroup.style.display = 'none';
+                    endDateGroup.style.display = 'none';
+                }
+            }
+            
+            // Инициализация при загрузке
+            toggleDateInputs();
+            
+            // Обработчик изменений
+            periodSelect.addEventListener('change', toggleDateInputs);
+            
+            // Автофокус на поле штрих-кода при загрузке
+            const barcodeInput = document.querySelector('input[name="barcode"]');
+            if (barcodeInput && !barcodeInput.value) {
+                barcodeInput.focus();
+            }
+            
+            // Обработка формы добавления количества
+            document.querySelectorAll('.add-quantity-form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    const quantityInput = this.querySelector('input[name="add_quantity"]');
+                    let quantityValue = quantityInput.value.trim();
+                    
+                    quantityValue = quantityValue.replace(/\s+/g, '').replace(',', '.');
+                    
+                    if (!quantityValue || isNaN(quantityValue)) {
+                        e.preventDefault();
+                        alert('Пожалуйста, введите корректное количество');
+                        return;
+                    }
+                    
+                    quantityInput.value = quantityValue;
+                });
+            });
+            
+            // Обработка формы перемещения
+            document.querySelectorAll('.move-form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    const select = this.querySelector('select[name="construction_object"]');
+                    const quantityInput = this.querySelector('input[name="quantity"]');
+                    
+                    // Заменяем запятую на точку для корректного парсинга
+                    let quantityValue = quantityInput.value.replace(',', '.');
+                    
+                    if (!select.value) {
+                        e.preventDefault();
+                        alert('Пожалуйста, выберите объект');
+                        select.focus();
+                        return;
+                    }
+                    
+                    // Проверяем, что введено число
+                    if (isNaN(parseFloat(quantityValue))) {
+                        e.preventDefault();
+                        alert('Пожалуйста, введите корректное количество');
+                        quantityInput.focus();
+                        return;
+                    }
+                    
+                    const maxQuantity = parseFloat(quantityInput.max);
+                    const enteredQuantity = parseFloat(quantityValue);
+                    
+                    if (enteredQuantity <= 0) {
+                        e.preventDefault();
+                        alert('Количество должно быть больше нуля');
+                        quantityInput.focus();
+                        return;
+                    }
+                    
+                    if (enteredQuantity > maxQuantity) {
+                        e.preventDefault();
+                        alert(`Нельзя переместить больше чем ${maxQuantity}`);
+                        quantityInput.focus();
+                        return;
+                    }
+                });
+            });
+        });
+        </script>
+{% endblock %}
