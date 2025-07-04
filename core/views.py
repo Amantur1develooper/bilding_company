@@ -1450,8 +1450,9 @@ def warehouse_view(request):
                 
                 # Создаем запись на объекте
                 StorageLocation.objects.create(
-                    # operation_type='income',
+                    
                     datetime=timezone.now(),
+                    
                     construction_object=construction_object,
                     warehouse=None,
                     payment_type=record.payment_type,
@@ -1472,7 +1473,7 @@ def warehouse_view(request):
                         operation_type='outcome',
                         datetime=timezone.now(),
                         warehouse=warehouse,
-                        # construction_object=construction_object,
+                        
                         payment_type=record.payment_type,
                         material=record.material,
                         unit=record.unit,
@@ -1489,7 +1490,7 @@ def warehouse_view(request):
                         operation_type='outcome',
                         datetime=timezone.now(),
                         warehouse=warehouse,
-                        # construction_object=construction_object,
+                        
                         payment_type=record.payment_type,
                         material=record.material,
                         unit=record.unit,
@@ -1594,10 +1595,10 @@ def warehouse_view(request):
             form = WarehouseMaterialForm(request.POST, warehouse=warehouse)
             if form.is_valid():
                  # сохраняем основной объект и получаем его экземпляр
-                # form.save()
+                 
                 record = form.save()
                 HistoryOdWarehouse.objects.create(
-                operation_type='income',              # или 'outcome' — как вам нужно
+                operation_type='income',
                 datetime=timezone.now(),
                 warehouse=record.warehouse,
                 construction_object=record.construction_object,
@@ -1612,43 +1613,45 @@ def warehouse_view(request):
             )
                 return redirect('warehouse')
    
+    # Изначально показываем все записи
+    records = base_query.order_by('-datetime')
     
-    # Фильтрация и остальной код
-    period = request.GET.get('period', 'month')
-    end_date = timezone.now()
-    
-    if period == 'day':
-        start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
-    elif period == 'week':
-        start_date = (end_date - timedelta(days=end_date.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0)
-    elif period == 'month':
-        start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    elif period == 'quarter':
-        current_quarter = (end_date.month - 1) // 3 + 1
-        start_date = datetime(end_date.year, 3 * current_quarter - 2, 1)
-        start_date = timezone.make_aware(start_date.replace(
-            hour=0, minute=0, second=0, microsecond=0))
-    else:  # custom
-        start_date = request.GET.get('start_date', end_date - timedelta(days=30))
-        if isinstance(start_date, str):
-            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    # Применяем фильтрацию по датам только если есть параметры фильтрации
+    if 'period' in request.GET or 'start_date' in request.GET or 'end_date' in request.GET:
+        period = request.GET.get('period', 'month')
+        end_date = timezone.now()
+        
+        if period == 'day':
+            start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        elif period == 'week':
+            start_date = (end_date - timedelta(days=end_date.weekday())).replace(
+                hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'month':
+            start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'quarter':
+            current_quarter = (end_date.month - 1) // 3 + 1
+            start_date = datetime(end_date.year, 3 * current_quarter - 2, 1)
             start_date = timezone.make_aware(start_date.replace(
                 hour=0, minute=0, second=0, microsecond=0))
+        else:  # custom
+            start_date = request.GET.get('start_date', end_date - timedelta(days=30))
+            if isinstance(start_date, str):
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+                start_date = timezone.make_aware(start_date.replace(
+                    hour=0, minute=0, second=0, microsecond=0))
+            
+            end_date = request.GET.get('end_date', timezone.now())
+            if isinstance(end_date, str):
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+                end_date = timezone.make_aware(end_date.replace(
+                    hour=23, minute=59, second=59, microsecond=999999))
         
-        end_date = request.GET.get('end_date', timezone.now())
-        if isinstance(end_date, str):
-            end_date = datetime.strptime(end_date, '%Y-%m-%d')
-            end_date = timezone.make_aware(end_date.replace(
-                hour=23, minute=59, second=59, microsecond=999999))
-    
-    # Применяем фильтрацию
-    records = base_query.filter(
-        datetime__gte=start_date,
-        datetime__lte=end_date
-        
-    ).order_by('-datetime')
+        # Применяем фильтрацию
+        records = records.filter(
+            datetime__gte=start_date,
+            datetime__lte=end_date
+        )
     
     if 'export' in request.GET:
         return generate_warehouse_excel(records, start_date, end_date)
@@ -1662,20 +1665,349 @@ def warehouse_view(request):
     records_history = HistoryOdWarehouse.objects.all()
     objects_sklada = ConstructionObjectOfWarehouse.objects.all()
         
-    context = {
         
-        'form': form,
-        "objects_sklada":objects_sklada,
+    context = {
+        "form": form,
+        "objects_sklada": objects_sklada,
         'records_history': records_history,
         'records': records,
-        'sklad_object':True,
+        'sklad_object': True,
         'warehouse': warehouse,
         'objects': objects,
-        'start_date': start_date.strftime('%Y-%m-%d') if isinstance(start_date, datetime) else start_date,
-        'end_date': end_date.strftime('%Y-%m-%d') if isinstance(end_date, datetime) else end_date,
-        'selected_period': period,
+        'start_date': start_date.strftime('%Y-%m-%d') if 'start_date' in locals() else '',
+        'end_date': end_date.strftime('%Y-%m-%d') if 'end_date' in locals() else '',
+        'selected_period': request.GET.get('period', ''),
     }
     return render(request, 'core/warehouse.html', context)
+# @login_required
+# def warehouse_view(request):
+#     warehouse = Warehouse.objects.first()
+#     base_query = MaterialRecord.objects.filter(
+#         warehouse=warehouse,
+#         construction_object__isnull=True
+#     ).select_related('unit', 'warehouse')
+    
+#     barcode = request.GET.get('barcode')
+#     if barcode:
+#         base_query = base_query.filter(barcode=barcode)
+        
+#     if request.method == 'POST':
+#         # Обработка добавления количества
+#         if 'add_quantity' in request.POST:
+#             print(f"Add quantity POST data: {request.POST}")
+#             record_id = request.POST.get('record_id')
+#             quantity_to_add = request.POST.get('add_quantity', '').strip()
+            
+#             try:
+#                 record = MaterialRecord.objects.get(id=record_id, warehouse=warehouse)
+                
+#                 # Проверка на пустое значение
+#                 if not quantity_to_add:
+#                     messages.error(request, 'Пожалуйста, введите количество для добавления')
+#                     return redirect('warehouse')
+                
+#                 # Заменяем запятую на точку и удаляем пробелы
+#                 quantity_str = quantity_to_add.replace(',', '.').replace(' ', '')
+                
+#                 try:
+#                     quantity_to_add = Decimal(quantity_str)
+#                 except InvalidOperation:
+#                     messages.error(request, 'Некорректный формат числа. Используйте цифры и точку/запятую для десятичных')
+#                     return redirect('warehouse')
+                
+#                 if quantity_to_add <= 0:
+#                     messages.error(request, 'Количество должно быть больше нуля')
+#                     return redirect('warehouse')
+                
+#                 # Создаем запись в истории
+#                 HistoryOdWarehouse.objects.create(
+#                     operation_type='income',
+#                     datetime=timezone.now(),
+#                     warehouse=warehouse,
+#                     construction_object=None,
+#                     payment_type=record.payment_type,
+#                     material=record.material,
+#                     unit=record.unit,
+#                     barcode=record.barcode,
+#                     quantity=quantity_to_add,
+#                     price=record.price,
+#                     total=quantity_to_add * record.price,
+#                     comment="Добавлено количество к существующему материалу"
+#                 )
+                
+#                 # Обновляем исходную запись
+#                 record.quantity += quantity_to_add
+#                 record.total = record.quantity * record.price
+#                 record.save()
+                
+#                 messages.success(request, f'Добавлено {quantity_to_add}{record.unit.short_name} материала "{record.material}"')
+#                 return redirect('warehouse')
+            
+#             except MaterialRecord.DoesNotExist:
+#                 messages.error(request, 'Запись не найдена')
+#             except Exception as e:
+#                 messages.error(request, f'Ошибка при добавлении количества: {str(e)}')
+        
+#         # Обработка перемещения материалов на объект
+        
+#         elif 'move_to_objects_klada' in request.POST:
+#             record_id = request.POST.get('record_id')
+#             object_id = request.POST.get('construction_object')
+#             quantity_to_move = request.POST.get('quantity', '').strip()
+            
+#             try:
+#                 record = MaterialRecord.objects.get(id=record_id, warehouse=warehouse)
+#                 construction_object = ConstructionObjectOfWarehouse.objects.get(id=object_id)
+                
+#                 # Проверка на пустое значение
+#                 if not quantity_to_move:
+#                     messages.error(request, 'Пожалуйста, введите количество для перемещения')
+#                     return redirect('warehouse')
+                
+#                 # Преобразуем количество в Decimal
+#                 try:
+#                     quantity_to_move = Decimal(quantity_to_move.replace(',', '.'))
+#                 except InvalidOperation:
+#                     messages.error(request, 'Некорректный формат количества для перемещения')
+#                     return redirect('warehouse')
+                
+#                 # Проверки
+#                 if quantity_to_move <= 0:
+#                     messages.error(request, 'Количество должно быть больше нуля')
+#                     return redirect('warehouse')
+                    
+#                 if quantity_to_move > record.quantity:
+#                     messages.error(request, f'Недостаточно материала (доступно: {record.quantity})')
+#                     return redirect('warehouse')
+                
+#                 # Создаем запись на объекте
+#                 StorageLocation.objects.create(
+#                     # operation_type='income',
+#                     datetime=timezone.now(),
+#                     construction_object=construction_object,
+#                     warehouse=None,
+#                     payment_type=record.payment_type,
+#                     material=record.material,
+#                     unit=record.unit,
+#                     barcode=record.barcode,
+#                     quantity=quantity_to_move,
+#                     price=record.price,
+#                     total=quantity_to_move * record.price,
+#                     from_Warehouse=True,
+#                     comment=f"Перемещено со склада {warehouse.name}"
+#                 )
+                
+#                 # Обновляем исходную запись
+#                 if quantity_to_move == record.quantity:
+#                      # Создаем запись расхода на складе
+#                     HistoryOdWarehouse.objects.create(
+#                         operation_type='outcome',
+#                         datetime=timezone.now(),
+#                         warehouse=warehouse,
+#                         # construction_object=construction_object,
+#                         payment_type=record.payment_type,
+#                         material=record.material,
+#                         unit=record.unit,
+#                         barcode=record.barcode,
+#                         quantity=quantity_to_move,
+#                         price=record.price,
+#                         total=quantity_to_move * record.price,
+#                         comment=f"Перемещено на объект склада {construction_object.name}"
+#                     )
+#                     record.delete()
+#                 else:
+#                     # Создаем запись расхода на складе
+#                     HistoryOdWarehouse.objects.create(
+#                         operation_type='outcome',
+#                         datetime=timezone.now(),
+#                         warehouse=warehouse,
+#                         # construction_object=construction_object,
+#                         payment_type=record.payment_type,
+#                         material=record.material,
+#                         unit=record.unit,
+#                         barcode=record.barcode,
+#                         quantity=quantity_to_move,
+#                         price=record.price,
+#                         total=quantity_to_move * record.price,
+#                         comment=f"Перемещено на объект склада {construction_object.name}"
+#                     )
+                    
+#                     # Обновляем исходную запись
+#                     record.quantity -= quantity_to_move
+#                     record.total = record.quantity * record.price
+#                     record.save()
+                
+#                 messages.success(request, f'Материал "{record.material}" перемещен на объект "{construction_object.name}"')
+#                 return redirect('warehouse')
+            
+#             except Exception as e:
+#                 messages.error(request, f'Ошибка при перемещении: {str(e)}')
+        
+#         elif 'move_to_object' in request.POST:
+#             record_id = request.POST.get('record_id')
+#             object_id = request.POST.get('construction_object')
+#             quantity_to_move = request.POST.get('quantity', '').strip()
+            
+#             try:
+#                 record = MaterialRecord.objects.get(id=record_id, warehouse=warehouse)
+#                 construction_object = ConstructionObject.objects.get(id=object_id)
+                
+#                 # Проверка на пустое значение
+#                 if not quantity_to_move:
+#                     messages.error(request, 'Пожалуйста, введите количество для перемещения')
+#                     return redirect('warehouse')
+                
+#                 # Преобразуем количество в Decimal
+#                 try:
+#                     quantity_to_move = Decimal(quantity_to_move.replace(',', '.'))
+#                 except InvalidOperation:
+#                     messages.error(request, 'Некорректный формат количества для перемещения')
+#                     return redirect('warehouse')
+                
+#                 # Проверки
+#                 if quantity_to_move <= 0:
+#                     messages.error(request, 'Количество должно быть больше нуля')
+#                     return redirect('warehouse')
+                    
+#                 if quantity_to_move > record.quantity:
+#                     messages.error(request, f'Недостаточно материала (доступно: {record.quantity})')
+#                     return redirect('warehouse')
+                
+#                 # Создаем запись на объекте
+#                 MaterialRecord.objects.create(
+#                     operation_type='income',
+#                     datetime=timezone.now(),
+#                     construction_object=construction_object,
+#                     warehouse=None,
+#                     payment_type=record.payment_type,
+#                     material=record.material,
+#                     unit=record.unit,
+#                     barcode=record.barcode,
+#                     quantity=quantity_to_move,
+#                     price=record.price,
+#                     total=quantity_to_move * record.price,
+#                     from_Warehouse=True,
+#                     comment=f"Перемещено со склада {warehouse.name}"
+#                 )
+                
+#                 # Обновляем исходную запись
+#                 if quantity_to_move == record.quantity:
+#                     record.delete()
+#                 else:
+#                     # Создаем запись расхода на складе
+#                     HistoryOdWarehouse.objects.create(
+#                         operation_type='outcome',
+#                         datetime=timezone.now(),
+#                         warehouse=warehouse,
+#                         construction_object=construction_object,
+#                         payment_type=record.payment_type,
+#                         material=record.material,
+#                         unit=record.unit,
+#                         barcode=record.barcode,
+#                         quantity=quantity_to_move,
+#                         price=record.price,
+#                         total=quantity_to_move * record.price,
+#                         comment=f"Перемещено на объект {construction_object.name}"
+#                     )
+                    
+#                     # Обновляем исходную запись
+#                     record.quantity -= quantity_to_move
+#                     record.total = record.quantity * record.price
+#                     record.save()
+                
+#                 messages.success(request, f'Материал "{record.material}" перемещен на объект "{construction_object.name}"')
+#                 return redirect('warehouse')
+            
+#             except Exception as e:
+#                 messages.error(request, f'Ошибка при перемещении: {str(e)}')
+        
+#         # Обработка формы добавления нового материала
+#         else:
+#             form = WarehouseMaterialForm(request.POST, warehouse=warehouse)
+#             if form.is_valid():
+#                  # сохраняем основной объект и получаем его экземпляр
+#                 # form.save()
+#                 record = form.save()
+#                 HistoryOdWarehouse.objects.create(
+#                 operation_type='income',              # или 'outcome' — как вам нужно
+#                 datetime=timezone.now(),
+#                 warehouse=record.warehouse,
+#                 construction_object=record.construction_object,
+#                 payment_type=record.payment_type,
+#                 material=record.material,
+#                 unit=record.unit,
+#                 barcode=record.barcode,
+#                 quantity=record.quantity,
+#                 price=record.price,
+#                 total=record.quantity * record.price,
+#                 comment=f"Добавлено на склад {record.warehouse.name}"
+#             )
+#                 return redirect('warehouse')
+   
+    
+#     # Фильтрация и остальной код
+#     period = request.GET.get('period', 'month')
+#     end_date = timezone.now()
+    
+#     if period == 'day':
+#         start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+#         end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+#     elif period == 'week':
+#         start_date = (end_date - timedelta(days=end_date.weekday())).replace(
+#             hour=0, minute=0, second=0, microsecond=0)
+#     elif period == 'month':
+#         start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+#     elif period == 'quarter':
+#         current_quarter = (end_date.month - 1) // 3 + 1
+#         start_date = datetime(end_date.year, 3 * current_quarter - 2, 1)
+#         start_date = timezone.make_aware(start_date.replace(
+#             hour=0, minute=0, second=0, microsecond=0))
+#     else:  # custom
+#         start_date = request.GET.get('start_date', end_date - timedelta(days=30))
+#         if isinstance(start_date, str):
+#             start_date = datetime.strptime(start_date, '%Y-%m-%d')
+#             start_date = timezone.make_aware(start_date.replace(
+#                 hour=0, minute=0, second=0, microsecond=0))
+        
+#         end_date = request.GET.get('end_date', timezone.now())
+#         if isinstance(end_date, str):
+#             end_date = datetime.strptime(end_date, '%Y-%m-%d')
+#             end_date = timezone.make_aware(end_date.replace(
+#                 hour=23, minute=59, second=59, microsecond=999999))
+    
+#     # Применяем фильтрацию
+#     records = base_query.filter(
+#         datetime__gte=start_date,
+#         datetime__lte=end_date
+        
+#     ).order_by('-datetime')
+    
+#     if 'export' in request.GET:
+#         return generate_warehouse_excel(records, start_date, end_date)
+    
+#     # Получаем список объектов
+#     objects = ConstructionObject.objects.all()
+    
+#     # Форма для добавления материала
+#     form = WarehouseMaterialForm(warehouse=warehouse)
+    
+#     records_history = HistoryOdWarehouse.objects.all()
+#     objects_sklada = ConstructionObjectOfWarehouse.objects.all()
+        
+#     context = {
+        
+#         'form': form,
+#         "objects_sklada":objects_sklada,
+#         'records_history': records_history,
+#         'records': records,
+#         'sklad_object':True,
+#         'warehouse': warehouse,
+#         'objects': objects,
+#         'start_date': start_date.strftime('%Y-%m-%d') if isinstance(start_date, datetime) else start_date,
+#         'end_date': end_date.strftime('%Y-%m-%d') if isinstance(end_date, datetime) else end_date,
+#         'selected_period': period,
+#     }
+#     return render(request, 'core/warehouse.html', context)
 
 
 

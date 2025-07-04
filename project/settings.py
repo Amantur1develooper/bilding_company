@@ -25,12 +25,12 @@ SECRET_KEY = 'django-insecure-4kjpdeec9i-er9y2122by@!x0@(_x8*5yvzw^x#ewtca404_ne
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ 'tapik.org','www.tapik.org']
+# ALLOWED_HOSTS = [ 'tapik.org','www.tapik.org']
 
-CSRF_TRUSTED_ORIGINS = [
-     'https://tapik.org',
-    'https://www.tapik.org',
-]
+# CSRF_TRUSTED_ORIGINS = [
+#      'https://tapik.org',
+#     'https://www.tapik.org',
+# ]
 
 # "https://c738-92-245-115-37.ngrok-free.app",
 
